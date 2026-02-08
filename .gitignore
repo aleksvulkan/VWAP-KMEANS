@@ -1,0 +1,7 @@
+__pycache__/
+.env
+*.csv
+*.pkl
+*.log
+.idea/
+.vscode/
