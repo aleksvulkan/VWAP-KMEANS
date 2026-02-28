@@ -3,37 +3,38 @@ import pandas as pd
 import yfinance as yf
 from pytickersymbols import PyTickerSymbols
 
-def get_sp500_data(tickers: list, period: str, interval: str) -> dict[str, pd.DataFrame]:
+def get_sp500_data(tickers: list, period: str, interval: str) -> pd.DataFrame:
     if not tickers:
         raise ValueError("Tickers list is empty.")
     
-    data = {}
-
-    for ticker in tickers:
-        df = yf.download(
-            ticker,
-            period = period,
-            interval = interval,
-            progress = True
-            )
-        if df.empty:
-            print(f"Skipping {ticker}: No data.")
-            continue
-
-        data[ticker] = df
-
+    data = yf.download(
+        tickers=tickers,
+        period=period,
+        interval=interval,
+        group_by="ticker",
+        auto_adjust=True,
+        threads=True,      # important
+        progress=True
+    )
     return data
 
 
-def get_volume(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
-
+def get_volume(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extracts the 'Volume' columns for all tickers from a multi-index DataFrame
+    returned by yfinance when downloading multiple tickers at once.
+    """
     volume_df = pd.DataFrame()
 
-    for ticker, df in data.items():
-        if "Volume" not in df.columns:
-            continue
-        volume_df[ticker] = df["Volume"]
-
+    # check if df has MultiIndex columns
+    if isinstance(df.columns, pd.MultiIndex):
+        for ticker in df.columns.levels[0]:
+            # select the 'Volume' column for this ticker
+            volume_df[ticker] = df[ticker]["Volume"]
+    else:
+        # single ticker case
+        volume_df[df.columns.name] = df["Volume"]  # optional, or just df["Volume"]
+    
     return volume_df
 
 
@@ -64,8 +65,3 @@ def get_tickers() -> list[str]:
 
     return list(tickers_df["Symbol"])
 
-tickers = ["AAPL", "NVDA", "SPY", "GLD", "GOOG"]
-
-data = get_sp500_data(tickers, period = "5d", interval = "1m")
-volume_df = get_volume(data)
-print(np.array(volume_df))
